@@ -401,16 +401,7 @@
 
   function bindTap(el, handler) {
     if (!el) return;
-    let touchHandled = false;
-    el.addEventListener('click', (e) => {
-      if (touchHandled) { touchHandled = false; return; }
-      handler(e);
-    });
-    el.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      touchHandled = true;
-      handler(e);
-    }, { passive: false });
+    el.addEventListener('click', handler);
   }
 
 
