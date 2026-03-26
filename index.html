@@ -31,7 +31,7 @@
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin:0; background:#000; color:#fff; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; height:100%; overflow:hidden; }
-    body { overscroll-behavior:none; touch-action:none; }
+    body { overscroll-behavior:none; }
     button, input, textarea, select { font: inherit; }
 
     .app {
@@ -111,7 +111,12 @@
     }
 
     .hidden-file {
-      display:none;
+      position: fixed;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0.001;
+      pointer-events: none;
     }
 
     .empty-state {
@@ -393,6 +398,21 @@
   function uid() {
     return 'l_' + Math.random().toString(36).slice(2, 10);
   }
+
+  function bindTap(el, handler) {
+    if (!el) return;
+    let touchHandled = false;
+    el.addEventListener('click', (e) => {
+      if (touchHandled) { touchHandled = false; return; }
+      handler(e);
+    });
+    el.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      touchHandled = true;
+      handler(e);
+    }, { passive: false });
+  }
+
 
   function showToast(text) {
     toast.textContent = text;
@@ -723,20 +743,19 @@
   }
 
   imagePicker.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files && e.target.files[0];
     updateBackground(file);
+    imagePicker.value = '';
   });
 
-  [pickImageEmpty, pickImageTop].forEach(btn =>
-    btn.addEventListener('click', () => imagePicker.click())
-  );
+  [pickImageEmpty, pickImageTop].forEach(btn => bindTap(btn, () => imagePicker.click()));
 
-  addTextBtn.addEventListener('click', addNewLayer);
-  duplicateBtn.addEventListener('click', duplicateSelected);
-  deleteBtn.addEventListener('click', deleteSelected);
+  bindTap(addTextBtn, addNewLayer);
+  bindTap(duplicateBtn, duplicateSelected);
+  bindTap(deleteBtn, deleteSelected);
 
-  cancelEdit.addEventListener('click', closeEditor);
-  applyEdit.addEventListener('click', applyEditorChanges);
+  bindTap(cancelEdit, closeEditor);
+  bindTap(applyEdit, applyEditorChanges);
 
   editField.addEventListener('input', () => {
     const layer = layers.find(l => l.id === editingId);
@@ -754,7 +773,7 @@
   });
 
   [alignLeftBtn, alignCenterBtn, alignRightBtn].forEach(btn => {
-    btn.addEventListener('click', () => {
+    bindTap(btn, () => {
       const layer = layers.find(l => l.id === editingId);
       if (!layer) return;
       layer.align = btn.dataset.align;
@@ -764,7 +783,7 @@
     });
   });
 
-  bgToggleBtn.addEventListener('click', () => {
+  bindTap(bgToggleBtn, () => {
     const layer = layers.find(l => l.id === editingId);
     if (!layer) return;
     layer.bg = !layer.bg;
@@ -869,6 +888,17 @@
 
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     const url = URL.createObjectURL(blob);
+
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], 'story-text.png', { type: 'image/png' })] })) {
+      const file = new File([blob], 'story-text.png', { type: 'image/png' });
+      try {
+        await navigator.share({ files: [file], title: 'story-text.png' });
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast('Готово: выбери “Сохранить изображение”');
+        return;
+      } catch (e) {}
+    }
+
     const a = document.createElement('a');
     a.href = url;
     a.download = 'story-text.png';
@@ -876,7 +906,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast('Готово: изображение сохранено в Загрузки');
+    showToast('Готово: файл экспортирован');
   }
 
   function roundRect(ctx, x, y, width, height, radius) {
@@ -890,7 +920,7 @@
     ctx.closePath();
   }
 
-  saveBtn.addEventListener('click', saveImage);
+  bindTap(saveBtn, saveImage);
 
   window.addEventListener('resize', render);
 
