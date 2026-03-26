@@ -1,435 +1,132 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Story App</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    @font-face {
-      font-family: "MyFont";
-      src: url("myfont.ttf") format("truetype");
-      font-display: swap;
-    }
+<style>
+@font-face {
+  font-family: "MyFont";
+  src: url("myfont.ttf");
+}
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f5f1eb;
+  padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f5f1eb;
-      color: #2f2a26;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 20px 12px 40px;
-    }
+.container {
+  max-width: 400px;
+  margin: auto;
+}
 
-    .app {
-      width: 100%;
-      max-width: 460px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+.story {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9/16;
+  background: #ddd;
+  border-radius: 20px;
+  overflow: hidden;
+}
 
-    .card {
-      background: rgba(255,255,255,0.72);
-      backdrop-filter: blur(10px);
-      border-radius: 24px;
-      padding: 16px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-    }
+.story img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 700;
-    }
+.text {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "MyFont";
+  font-size: 40px;
+  color: white;
+  cursor: grab;
+}
 
-    .sub {
-      margin: 6px 0 0;
-      color: #6d625b;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-
-    .preview-wrap {
-      display: flex;
-      justify-content: center;
-    }
-
-    .story {
-      position: relative;
-      width: min(100%, 390px);
-      aspect-ratio: 9 / 16;
-      background: #ddd6cf;
-      border-radius: 28px;
-      overflow: hidden;
-      touch-action: none;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-    }
-
-    .story img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: none;
-      user-select: none;
-      pointer-events: none;
-    }
-
-    .placeholder {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 24px;
-      color: #7f746d;
-      font-size: 16px;
-      line-height: 1.5;
-    }
-
-    .text-layer {
-      position: absolute;
-      left: 50%;
-      top: 24%;
-      transform: translate(-50%, -50%);
-      font-family: "MyFont", cursive;
-      font-size: 42px;
-      line-height: 1.15;
-      color: white;
-      text-align: center;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-width: 85%;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.28);
-      cursor: grab;
-      user-select: none;
-      touch-action: none;
-      display: none;
-    }
-
-    .text-layer.dragging {
-      cursor: grabbing;
-    }
-
-    .controls {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    label {
-      font-size: 14px;
-      color: #6b6059;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    input[type="file"],
-    textarea,
-    input[type="range"],
-    button {
-      width: 100%;
-    }
-
-    textarea {
-      border: none;
-      border-radius: 18px;
-      padding: 14px 16px;
-      resize: vertical;
-      min-height: 90px;
-      font-size: 16px;
-      font-family: inherit;
-      background: #fff;
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
-    }
-
-    input[type="file"] {
-      background: #fff;
-      border-radius: 18px;
-      padding: 12px;
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
-    }
-
-    input[type="range"] {
-      accent-color: #8f7d72;
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-    }
-
-    .row > * {
-      flex: 1;
-    }
-
-    button {
-      border: none;
-      border-radius: 18px;
-      padding: 14px 16px;
-      font-size: 16px;
-      font-weight: 600;
-      background: #2f2a26;
-      color: white;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      background: #e7dfd8;
-      color: #2f2a26;
-    }
-
-    .hint {
-      font-size: 13px;
-      color: #7c726b;
-      line-height: 1.45;
-      margin: 0;
-    }
-  </style>
+textarea, button, input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+}
+</style>
 </head>
+
 <body>
-  <div class="app">
-    <div class="card">
-      <h1>Мои сторис</h1>
-      <p class="sub">Загрузи фото, напиши текст, передвинь его пальцем или мышкой и сохрани картинку.</p>
-    </div>
 
-    <div class="card preview-wrap">
-      <div class="story" id="story">
-        <img id="photo" alt="" />
-        <div class="placeholder" id="placeholder">Выбери фото ниже, и здесь появится превью.</div>
-        <div class="text-layer" id="textLayer">Твой текст</div>
-      </div>
-    </div>
+<div class="container">
 
-    <div class="card controls">
-      <div>
-        <label for="upload">Фото</label>
-        <input type="file" id="upload" accept="image/*" />
-      </div>
+<input type="file" id="upload">
 
-      <div>
-        <label for="textInput">Текст</label>
-        <textarea id="textInput" placeholder="Напиши что-то красивое..."></textarea>
-      </div>
+<div class="story" id="story">
+  <img id="img">
+  <div class="text" id="text">Текст</div>
+</div>
 
-      <div>
-        <label for="fontSize">Размер текста</label>
-        <input type="range" id="fontSize" min="24" max="72" value="42" />
-      </div>
+<textarea id="input" placeholder="Напиши текст..."></textarea>
 
-      <div class="row">
-        <button class="secondary" id="whiteBtn" type="button">Белый текст</button>
-        <button class="secondary" id="blackBtn" type="button">Тёмный текст</button>
-      </div>
+<button onclick="save()">Скачать</button>
 
-      <button id="saveBtn" type="button">Сохранить сторис</button>
-      <p class="hint">Текст можно двигать прямо на фото. На iPhone это тоже должно работать.</p>
-    </div>
-  </div>
+</div>
 
-  <script>
-    const upload = document.getElementById("upload");
-    const photo = document.getElementById("photo");
-    const placeholder = document.getElementById("placeholder");
-    const textInput = document.getElementById("textInput");
-    const textLayer = document.getElementById("textLayer");
-    const story = document.getElementById("story");
-    const saveBtn = document.getElementById("saveBtn");
-    const fontSizeInput = document.getElementById("fontSize");
-    const whiteBtn = document.getElementById("whiteBtn");
-    const blackBtn = document.getElementById("blackBtn");
+<script>
+const img = document.getElementById("img");
+const input = document.getElementById("input");
+const text = document.getElementById("text");
 
-    let imageLoaded = false;
-    let textColor = "#ffffff";
+let dragging = false;
 
-    let dragActive = false;
-    let startX = 0;
-    let startY = 0;
-    let currentLeft = 50;
-    let currentTop = 24;
+document.getElementById("upload").onchange = e => {
+  img.src = URL.createObjectURL(e.target.files[0]);
+};
 
-    function updateText() {
-      const value = textInput.value.trim();
-      textLayer.textContent = value || "Твой текст";
-      textLayer.style.display = value ? "block" : "none";
-    }
+input.oninput = () => {
+  text.innerText = input.value;
+};
 
-    function updateFontSize() {
-      textLayer.style.fontSize = `${fontSizeInput.value}px`;
-    }
+text.addEventListener("touchstart", () => dragging = true);
+text.addEventListener("touchend", () => dragging = false);
 
-    function setTextColor(color) {
-      textColor = color;
-      textLayer.style.color = color;
-    }
+text.addEventListener("touchmove", e => {
+  if (!dragging) return;
+  const t = e.touches[0];
+  text.style.left = t.clientX + "px";
+  text.style.top = t.clientY + "px";
+});
 
-    function setTextPositionPercent(leftPercent, topPercent) {
-      currentLeft = Math.max(8, Math.min(92, leftPercent));
-      currentTop = Math.max(8, Math.min(92, topPercent));
-      textLayer.style.left = `${currentLeft}%`;
-      textLayer.style.top = `${currentTop}%`;
-    }
+text.addEventListener("mousedown", () => dragging = true);
+window.addEventListener("mouseup", () => dragging = false);
 
-    function handleImage(file) {
-      if (!file) return;
-      const url = URL.createObjectURL(file);
-      photo.onload = () => {
-        imageLoaded = true;
-        photo.style.display = "block";
-        placeholder.style.display = "none";
-      };
-      photo.src = url;
-    }
+window.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  text.style.left = e.clientX + "px";
+  text.style.top = e.clientY + "px";
+});
 
-    upload.addEventListener("change", (e) => {
-      handleImage(e.target.files[0]);
-    });
+function save() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1920;
+  const ctx = canvas.getContext("2d");
 
-    textInput.addEventListener("input", updateText);
-    fontSizeInput.addEventListener("input", updateFontSize);
-    whiteBtn.addEventListener("click", () => setTextColor("#ffffff"));
-    blackBtn.addEventListener("click", () => setTextColor("#1f1b18"));
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    function pointerDown(e) {
-      if (textLayer.style.display === "none") return;
-      dragActive = true;
-      textLayer.classList.add("dragging");
-      const point = e.touches ? e.touches[0] : e;
-      startX = point.clientX;
-      startY = point.clientY;
-      e.preventDefault();
-    }
+  ctx.font = "60px MyFont";
+  ctx.fillStyle = "white";
+  ctx.fillText(text.innerText, 200, 400);
 
-    function pointerMove(e) {
-      if (!dragActive) return;
-      const point = e.touches ? e.touches[0] : e;
-      const storyRect = story.getBoundingClientRect();
+  const link = document.createElement("a");
+  link.download = "story.png";
+  link.href = canvas.toDataURL();
+  link.click();
+}
+</script>
 
-      const x = point.clientX - storyRect.left;
-      const y = point.clientY - storyRect.top;
-
-      const leftPercent = (x / storyRect.width) * 100;
-      const topPercent = (y / storyRect.height) * 100;
-
-      setTextPositionPercent(leftPercent, topPercent);
-      e.preventDefault();
-    }
-
-    function pointerUp() {
-      dragActive = false;
-      textLayer.classList.remove("dragging");
-    }
-
-    textLayer.addEventListener("mousedown", pointerDown);
-    window.addEventListener("mousemove", pointerMove);
-    window.addEventListener("mouseup", pointerUp);
-
-    textLayer.addEventListener("touchstart", pointerDown, { passive: false });
-    window.addEventListener("touchmove", pointerMove, { passive: false });
-    window.addEventListener("touchend", pointerUp);
-
-    function drawCoverImage(ctx, img, canvasWidth, canvasHeight) {
-      const imgRatio = img.naturalWidth / img.naturalHeight;
-      const canvasRatio = canvasWidth / canvasHeight;
-
-      let drawWidth, drawHeight, offsetX, offsetY;
-
-      if (imgRatio > canvasRatio) {
-        drawHeight = canvasHeight;
-        drawWidth = drawHeight * imgRatio;
-        offsetX = (canvasWidth - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = canvasWidth;
-        drawHeight = drawWidth / imgRatio;
-        offsetX = 0;
-        offsetY = (canvasHeight - drawHeight) / 2;
-      }
-
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-    }
-
-    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-      const paragraphs = text.split("\n");
-      let currentY = y;
-
-      for (const paragraph of paragraphs) {
-        const words = paragraph.split(" ");
-        let line = "";
-
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line ? line + " " + words[n] : words[n];
-          const metrics = ctx.measureText(testLine);
-          if (metrics.width > maxWidth && n > 0) {
-            ctx.fillText(line, x, currentY);
-            line = words[n];
-            currentY += lineHeight;
-          } else {
-            line = testLine;
-          }
-        }
-
-        ctx.fillText(line, x, currentY);
-        currentY += lineHeight;
-      }
-    }
-
-    async function saveStory() {
-      if (!imageLoaded) {
-        alert("Сначала выбери фото.");
-        return;
-      }
-
-      if (document.fonts && document.fonts.ready) {
-        await document.fonts.ready;
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = 1080;
-      canvas.height = 1920;
-      const ctx = canvas.getContext("2d");
-
-      drawCoverImage(ctx, photo, canvas.width, canvas.height);
-
-      const text = textInput.value.trim();
-      if (text) {
-        const fontSize = Number(fontSizeInput.value) * (canvas.width / story.clientWidth);
-        ctx.fillStyle = textColor;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = `${fontSize}px "MyFont", sans-serif`;
-
-        const x = (currentLeft / 100) * canvas.width;
-        const y = (currentTop / 100) * canvas.height;
-        const lineHeight = fontSize * 1.2;
-        const maxWidth = canvas.width * 0.82;
-
-        wrapText(ctx, text, x, y, maxWidth, lineHeight);
-      }
-
-      const link = document.createElement("a");
-      link.download = "story.png";
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    }
-
-    saveBtn.addEventListener("click", saveStory);
-
-    updateText();
-    updateFontSize();
-    setTextColor("#ffffff");
-    setTextPositionPercent(50, 24);
-  </script>
 </body>
 </html>
