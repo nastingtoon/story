@@ -73,7 +73,14 @@
       will-change: transform;
       user-select: none;
       touch-action: none;
+      opacity: 0;
+      transition: opacity .18s ease;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      contain: layout paint size style;
     }
+
+    .image-wrap.ready { opacity: 1; }
 
     .image-wrap.previewing {
       filter: brightness(1.08) saturate(1.08);
@@ -259,13 +266,11 @@
       filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
     }
 
-    .rotate-handle {
+    .rotate-handle, .edit-handle {
       position: absolute;
-      left: 50%;
       top: -34px;
       width: 26px;
       height: 26px;
-      margin-left: -13px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.9);
       background: rgba(0,0,0,.75);
@@ -281,8 +286,13 @@
       box-shadow: 0 3px 10px rgba(0,0,0,.25);
     }
 
-    .layer.selected .rotate-handle { display: flex; }
+    .rotate-handle { left: calc(50% + 16px); }
+    .edit-handle { left: calc(50% - 16px); }
+
+    .layer.selected .rotate-handle,
+    .layer.selected .edit-handle { display: flex; }
     .layer .rotate-handle::before { content: "⟳"; transform: translateY(-1px); }
+    .layer .edit-handle::before { content: "✎"; transform: translateY(-1px); }
 
     .hint-chip {
       position: absolute;
@@ -506,7 +516,7 @@
         </div>
       </div>
 
-      <div class="hint-chip" id="desktopHint">На компьютере: тяни кружок над текстом для поворота</div>
+      <div class="hint-chip" id="desktopHint">На компьютере: карандаш — редактировать, кружок — поворачивать</div>
 
       <div class="bottombar">
         <button class="pill-btn" id="addTextBtn">Добавить текст</button>
@@ -612,6 +622,8 @@
     rotateHandle: false,
     active: false
   };
+
+  let imageLoadToken = 0;
 
   const isLikelyDesktop = matchMedia('(hover: hover) and (pointer: fine)').matches;
   if (isLikelyDesktop) {
@@ -762,6 +774,12 @@
       el.style.borderRadius = layer.bg ? '14px' : '0';
       el.style.padding = layer.bg ? '.18em .28em' : '.12em .18em';
 
+      const editHandle = document.createElement('div');
+      editHandle.className = 'edit-handle';
+      editHandle.title = 'Редактировать';
+      editHandle.dataset.role = 'edit';
+      el.appendChild(editHandle);
+
       const handle = document.createElement('div');
       handle.className = 'rotate-handle';
       handle.title = 'Поворот';
@@ -788,6 +806,13 @@
     el.addEventListener('pointerdown', (e) => {
       if (editOverlay.classList.contains('active')) return;
       const role = e.target && e.target.dataset ? e.target.dataset.role : null;
+      if (role === 'edit') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelected(id);
+        openEditor(id);
+        return;
+      }
       if (role === 'rotate') {
         e.preventDefault();
         e.stopPropagation();
@@ -800,12 +825,6 @@
       setSelected(id);
       startLayerGesture(el, id, e, false);
     }, { passive: false });
-
-    el.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      setSelected(id);
-      openEditor(id);
-    });
 
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1081,6 +1100,8 @@
 
   function updateBackground(file) {
     if (!file) return;
+    imageLoadToken += 1;
+    const token = imageLoadToken;
     if (backgroundUrl) URL.revokeObjectURL(backgroundUrl);
     backgroundUrl = URL.createObjectURL(file);
     selectedId = null;
@@ -1090,12 +1111,31 @@
     imageState.rotation = 0;
     imageState.userScale = 1;
     imageWrap.hidden = false;
-    stageImage.onload = () => {
+    imageWrap.classList.remove('ready');
+    stageImage.style.visibility = 'hidden';
+    stageImage.decoding = 'async';
+
+    const finishLoad = () => {
+      if (token !== imageLoadToken) return;
       emptyState.style.display = 'none';
       fitImageCover();
+      stageImage.style.visibility = 'visible';
+      requestAnimationFrame(() => imageWrap.classList.add('ready'));
       render();
     };
+
+    stageImage.onload = finishLoad;
+    stageImage.onerror = () => {
+      if (token !== imageLoadToken) return;
+      showToast('Не удалось загрузить фото');
+      imageWrap.hidden = true;
+      stageImage.style.visibility = 'hidden';
+    };
+
     stageImage.src = backgroundUrl;
+    if (stageImage.decode) {
+      stageImage.decode().then(finishLoad).catch(() => {});
+    }
   }
 
   imagePicker.addEventListener('change', (e) => {
@@ -1302,18 +1342,6 @@
     }
 
     const objectUrl = URL.createObjectURL(blob);
-    const file = new File([blob], 'story-text.png', { type: 'image/png' });
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: 'story-text.png' });
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-        showToast('Изображение подготовлено для сохранения');
-        return;
-      } catch (_) {}
-    }
-
     const a = document.createElement('a');
     a.href = objectUrl;
     a.download = 'story-text.png';
@@ -1321,13 +1349,14 @@
     a.click();
     a.remove();
 
-    if (isMobile) {
-      showToast('Если файл не сохранился сам, открой загрузки или поделись PNG вручную', 3200);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      showToast('Файл сохранён в Загрузки/Файлы Safari. В Фото веб-приложение сохранить напрямую не может.', 3600);
     } else {
-      showToast('PNG сохранён');
+      showToast('PNG сохранён на устройство');
     }
 
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2500);
   }
 
   function roundRect(ctx, x, y, width, height, radius) {
@@ -1350,7 +1379,7 @@
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=8').catch(() => {});
+      navigator.serviceWorker.register('./sw.js?v=9').catch(() => {});
     });
   }
 
