@@ -80,6 +80,49 @@
       opacity: .86;
     }
 
+    .image-selection {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      display: none;
+    }
+
+    .image-selection.show { display: block; }
+
+    .image-selection::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px dashed rgba(255,255,255,.45);
+      border-radius: 18px;
+      pointer-events: none;
+    }
+
+    .image-rotate-handle {
+      position: absolute;
+      left: 50%;
+      top: 20px;
+      width: 28px;
+      height: 28px;
+      margin-left: -14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.9);
+      background: rgba(0,0,0,.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 14px;
+      line-height: 1;
+      pointer-events: auto;
+      touch-action: none;
+      cursor: grab;
+      box-shadow: 0 3px 10px rgba(0,0,0,.25);
+    }
+
+    .image-rotate-handle::before { content: "⟳"; transform: translateY(-1px); }
+
     .stage-image {
       display: block;
       width: auto;
@@ -443,6 +486,9 @@
       <div id="imageWrap" class="image-wrap" hidden>
         <img id="stageImage" class="stage-image" alt="" draggable="false" />
       </div>
+      <div id="imageSelection" class="image-selection" hidden>
+        <div id="imageRotateHandle" class="image-rotate-handle" title="Поворот фото"></div>
+      </div>
       <div class="empty-state" id="emptyState">
         <h1>Story Text Editor</h1>
         <p>Выбери фото, кадрируй как в сторис, добавляй текст, двигай, вращай, меняй размер и сохраняй готовую картинку.</p>
@@ -507,6 +553,8 @@
   const stage = document.getElementById('stage');
   const imageWrap = document.getElementById('imageWrap');
   const stageImage = document.getElementById('stageImage');
+  const imageSelection = document.getElementById('imageSelection');
+  const imageRotateHandle = document.getElementById('imageRotateHandle');
   const emptyState = document.getElementById('emptyState');
   const imagePicker = document.getElementById('imagePicker');
   const pickImageEmpty = document.getElementById('pickImageEmpty');
@@ -536,6 +584,7 @@
 
   let backgroundUrl = null;
   let selectedId = null;
+  let selectedSurface = null;
   let editingId = null;
   let justEndedGesture = false;
   let layers = [];
@@ -543,6 +592,7 @@
   const imageState = {
     x: 0,
     y: 0,
+    rotation: 0,
     userScale: 1,
     baseScale: 1,
     renderW: 0,
@@ -638,6 +688,13 @@
 
   function setSelected(id) {
     selectedId = id;
+    selectedSurface = id ? 'layer' : null;
+    render();
+  }
+
+  function setImageSelected() {
+    selectedId = null;
+    selectedSurface = backgroundUrl ? 'image' : null;
     render();
   }
 
@@ -688,6 +745,9 @@
 
   function render() {
     applyImageTransform();
+
+    imageSelection.hidden = !(backgroundUrl && selectedSurface === 'image' && !editOverlay.classList.contains('active'));
+    imageSelection.classList.toggle('show', !imageSelection.hidden);
 
     [...stage.querySelectorAll('.layer')].forEach(n => n.remove());
     layers.forEach(layer => {
@@ -750,8 +810,7 @@
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       if (justEndedGesture) return;
-      if (selectedId === id) openEditor(id);
-      else setSelected(id);
+      setSelected(id);
     });
   }
 
@@ -763,6 +822,7 @@
     return {
       x: imageState.x,
       y: imageState.y,
+      rotation: imageState.rotation,
       userScale: imageState.userScale,
       baseScale: imageState.baseScale,
       renderW: imageState.renderW,
@@ -792,14 +852,16 @@
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
   }
 
-  function startImageGesture(e) {
+  function startImageGesture(e, viaRotateHandle = false) {
     if (!backgroundUrl || editOverlay.classList.contains('active')) return;
     resetGesture();
     gesture.mode = 'image';
     gesture.element = imageWrap;
     gesture.startImage = copyImageState();
+    gesture.rotateHandle = !!viaRotateHandle;
     gesture.active = true;
     imageWrap.classList.add('previewing');
+    imageSelection.classList.add('show');
     gesture.pointers.set(e.pointerId, {
       x: e.clientX,
       y: e.clientY,
@@ -886,16 +948,28 @@
     const points = [...gesture.pointers.values()];
     if (!points.length) return;
 
-    if (points.length === 1) {
+    if (gesture.rotateHandle && points.length === 1) {
+      const p = points[0];
+      const centerX = stageRect().width / 2 + gesture.startImage.x;
+      const centerY = stageRect().height / 2 + gesture.startImage.y;
+      const startAngle = Math.atan2(p.startY - centerY, p.startX - centerX);
+      const currentAngle = Math.atan2(p.y - centerY, p.x - centerX);
+      imageState.rotation = gesture.startImage.rotation + (currentAngle - startAngle);
+      imageState.x = gesture.startImage.x;
+      imageState.y = gesture.startImage.y;
+      imageState.userScale = gesture.startImage.userScale;
+    } else if (points.length === 1) {
       const p = points[0];
       imageState.x = gesture.startImage.x + (p.x - p.startX);
       imageState.y = gesture.startImage.y + (p.y - p.startY);
+      imageState.rotation = gesture.startImage.rotation;
       imageState.userScale = gesture.startImage.userScale;
     } else {
       const [p1, p2] = points;
       if (!gesture.base) {
         gesture.base = {
           dist: Math.max(1, distance(p1, p2)),
+          angle: angle(p1, p2),
           mid: midpoint(p1, p2),
           image: copyImageState()
         };
@@ -903,7 +977,9 @@
       const base = gesture.base;
       const currentDist = Math.max(1, distance(p1, p2));
       const currentMid = midpoint(p1, p2);
+      const currentAngle = angle(p1, p2);
       imageState.userScale = clamp(base.image.userScale * (currentDist / base.dist), 1, 8);
+      imageState.rotation = base.image.rotation + (currentAngle - base.angle);
       imageState.x = base.image.x + (currentMid.x - base.mid.x);
       imageState.y = base.image.y + (currentMid.y - base.mid.y);
     }
@@ -936,13 +1012,23 @@
     applyImageTransform();
   }
 
+  function rotatedBounds(width, height, rotation) {
+    const c = Math.abs(Math.cos(rotation));
+    const s = Math.abs(Math.sin(rotation));
+    return {
+      width: width * c + height * s,
+      height: width * s + height * c
+    };
+  }
+
   function constrainImage() {
     const rect = stageRect();
     const size = currentImageRenderSize();
     imageState.renderW = size.width;
     imageState.renderH = size.height;
-    const maxX = Math.max(0, (size.width - rect.width) / 2);
-    const maxY = Math.max(0, (size.height - rect.height) / 2);
+    const bounds = rotatedBounds(size.width, size.height, imageState.rotation || 0);
+    const maxX = Math.max(0, (bounds.width - rect.width) / 2);
+    const maxY = Math.max(0, (bounds.height - rect.height) / 2);
     imageState.x = clamp(imageState.x, -maxX, maxX);
     imageState.y = clamp(imageState.y, -maxY, maxY);
   }
@@ -956,7 +1042,7 @@
     imageWrap.style.height = `${size.height}px`;
     stageImage.style.width = `${size.width}px`;
     stageImage.style.height = `${size.height}px`;
-    imageWrap.style.transform = `translate(-50%, -50%) translate(${imageState.x}px, ${imageState.y}px)`;
+    imageWrap.style.transform = `translate(-50%, -50%) translate(${imageState.x}px, ${imageState.y}px) rotate(${imageState.rotation}rad)`;
   }
 
   function addNewLayer() {
@@ -998,8 +1084,10 @@
     if (backgroundUrl) URL.revokeObjectURL(backgroundUrl);
     backgroundUrl = URL.createObjectURL(file);
     selectedId = null;
+    selectedSurface = 'image';
     imageState.x = 0;
     imageState.y = 0;
+    imageState.rotation = 0;
     imageState.userScale = 1;
     imageWrap.hidden = false;
     stageImage.onload = () => {
@@ -1105,9 +1193,16 @@
     const isLayer = target.closest('.layer');
     if (isControl || isLayer) return;
     e.preventDefault();
-    selectedId = null;
-    render();
-    if (backgroundUrl) startImageGesture(e);
+    if (backgroundUrl) {
+      selectedId = null;
+      selectedSurface = 'image';
+      render();
+      startImageGesture(e);
+    } else {
+      selectedId = null;
+      selectedSurface = null;
+      render();
+    }
   }, { passive: false });
 
   stage.addEventListener('dblclick', (e) => {
@@ -1115,6 +1210,14 @@
       addNewLayer();
     }
   });
+
+  imageRotateHandle.addEventListener('pointerdown', (e) => {
+    if (!backgroundUrl || editOverlay.classList.contains('active')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setImageSelected();
+    startImageGesture(e, true);
+  }, { passive: false });
 
   async function saveImage() {
     if (!backgroundUrl || !stageImage.complete) {
@@ -1146,10 +1249,12 @@
     const drawH = imageState.renderH * exportScale;
     const centerX = outW / 2 + imageState.x * exportScale;
     const centerY = outH / 2 + imageState.y * exportScale;
-    const drawX = centerX - drawW / 2;
-    const drawY = centerY - drawH / 2;
 
-    ctx.drawImage(stageImage, drawX, drawY, drawW, drawH);
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(imageState.rotation || 0);
+    ctx.drawImage(stageImage, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
 
     for (const layer of layers) {
       ctx.save();
@@ -1198,22 +1303,15 @@
 
     const objectUrl = URL.createObjectURL(blob);
     const file = new File([blob], 'story-text.png', { type: 'image/png' });
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: 'story-text.png' });
         setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-        showToast('В меню выбери “Сохранить изображение”');
+        showToast('Изображение подготовлено для сохранения');
         return;
       } catch (_) {}
-    }
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    if (isIOS) {
-      const opened = window.open(objectUrl, '_blank');
-      if (opened) showToast('Открой PNG и выбери Поделиться → Сохранить изображение', 2600);
-      else window.location.href = objectUrl;
-      return;
     }
 
     const a = document.createElement('a');
@@ -1222,8 +1320,14 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-    showToast('PNG сохранён');
+
+    if (isMobile) {
+      showToast('Если файл не сохранился сам, открой загрузки или поделись PNG вручную', 3200);
+    } else {
+      showToast('PNG сохранён');
+    }
+
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   }
 
   function roundRect(ctx, x, y, width, height, radius) {
@@ -1246,7 +1350,7 @@
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=7').catch(() => {});
+      navigator.serviceWorker.register('./sw.js?v=8').catch(() => {});
     });
   }
 
