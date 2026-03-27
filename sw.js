@@ -1,4 +1,4 @@
-const CACHE = 'story-text-editor-v10';
+const CACHE = 'story-text-editor-v11';
 const ASSETS = ['./', './index.html', './manifest.json', './Shevko-Regular.ttf', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));

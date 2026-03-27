@@ -91,7 +91,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      z-index: 3;
+      z-index: 70;
       display: none;
     }
 
@@ -124,18 +124,18 @@
       touch-action: none;
       cursor: grab;
       box-shadow: 0 3px 10px rgba(0,0,0,.25);
-      z-index: 4;
+      z-index: 71;
     }
 
     .image-rotate-handle {
       left: 50%;
-      top: 20px;
+      top: calc(env(safe-area-inset-top, 0px) + 74px);
       margin-left: -14px;
     }
 
     .image-scale-handle {
       right: 20px;
-      bottom: 20px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bottom-h) + 18px);
       cursor: nwse-resize;
     }
 
@@ -1288,6 +1288,14 @@
     const isControl = target.closest('.topbar, .bottombar, .edit-overlay, .empty-state, .toast');
     const isLayer = target.closest('.layer');
     if (isControl || isLayer) return;
+
+    if (gesture.active && gesture.mode === 'image') {
+      e.preventDefault();
+      e.stopPropagation();
+      addPointerToActiveGesture(e);
+      return;
+    }
+
     e.preventDefault();
     if (backgroundUrl) {
       selectedId = null;
@@ -1299,6 +1307,21 @@
       selectedSurface = null;
       render();
     }
+  }, { passive: false });
+
+  imageWrap.addEventListener('pointerdown', (e) => {
+    if (!backgroundUrl || editOverlay.classList.contains('active')) return;
+    if (e.target.closest('.image-rotate-handle, .image-scale-handle')) return;
+    if (gesture.active && gesture.mode === 'image') {
+      e.preventDefault();
+      e.stopPropagation();
+      addPointerToActiveGesture(e);
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    setImageSelected();
+    startImageGesture(e);
   }, { passive: false });
 
 
